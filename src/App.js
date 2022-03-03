@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { isEmpty, size } from 'lodash'
+import React, { useState, useEffect } from 'react';
+import { isEmpty, size } from 'lodash';
 import shortid from 'shortid';
+import { addDocuments, deleteDocument, getCollections, updateDocument } from './actions';
 
 function App() {
   const [task, setTask] = useState("");
@@ -10,7 +11,17 @@ function App() {
 
   const [error, setError] = useState(null)
 
-  const validForm = () =>{
+  useEffect(() => {
+    (async () => {
+      const result = await getCollections("tasks");
+      if (result.statusResponse) {
+        setTasks(result.data);
+      }
+    })()
+  }, [])
+
+
+  const validForm = () => {
     let isValid = true;
     setError(null);
 
@@ -23,36 +34,52 @@ function App() {
 
   }
 
-  const addTask = (e) => {
+  const addTask = async (e) => {
     e.preventDefault();
 
-    if(!validForm()){
-    return;
+    if (!validForm()) {
+      return;
     }
 
+    const result = await addDocuments("tasks", { name: task });
+
+    if (!result.statusResponse) {
+      setError(result.error)
+    }
     const newTask = {
-      id: shortid.generate(),
       name: task
     }
 
-    setTasks([...tasks, newTask]);
+    setTasks([...tasks, { id: result.data.id, name: task }]);
     setTask("");
   }
 
-  const saveTask = (e) => {
-    e.preventDefault();
-    if(!validForm()){
-      return;
+  const saveTask = async(e) => {
+    e.preventDefault()
+
+    if (!validForm()) {
+      return
+    }
+
+    const result = await updateDocument("tasks", id, { name: task })
+    if (!result.statusResponse) {
+      setError(result.error)
+      return
+    } 
+
+    const editedTasks = tasks.map(item => item.id === id ? { id, name: task} : item)
+    setTasks(editedTasks)
+    setEditMode(false)
+    setTask("")
+    setId("")
+  }
+
+  const deleteTask = async(id) => {
+      const result = await deleteDocument("tasks",id);
+
+      if (!result.statusResponse) {
+        setError(result.error);
       }
-
-    const editedTasks = tasks.map(item=>item.id === id ?{id,name:task}:id)
-    setTasks(editedTasks);
-    setTask("");
-    setEditMode(false);
-    setId("");
-  }
-
-  const deleteTask = (id) => {
     const filteredTasks = tasks.filter(task => task.id !== id);
     setTasks(filteredTasks);
   }
